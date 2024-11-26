@@ -51,9 +51,6 @@ dependencies {
     // Servlet
     implementation 'jakarta.servlet:jakarta.servlet-api:6.0.0'
 
-    // JWT
-    implementation 'com.nimbusds:nimbus-jose-jwt:8.9'
-
     // Utility
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation('com.googlecode.log4jdbc:log4jdbc:1.2') {
