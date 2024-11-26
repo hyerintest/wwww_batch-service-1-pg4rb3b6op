@@ -1,0 +1,145 @@
+plugins {
+    id 'org.springframework.boot' version '3.2.0'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'java'
+    id "org.sonarqube" version "4.4.1.3373"
+    id 'com.google.cloud.tools.jib' version '3.4.0'
+}
+
+group = 'com.tlc.test'
+version = '0.0.1'
+sourceCompatibility = '17'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    finalName = 'batch-service-1-pg4rb3b6op'
+
+    springProfile = project.hasProperty('springProfile') ? project.getProperty('springProfile') : 'default'
+    dockerRegistry = project.hasProperty('dockerRegistry') ? project.getProperty('dockerRegistry') : 'default'
+    dockerUser = project.hasProperty('dockerUser') ? project.getProperty('dockerUser') : 'default'
+    dockerPassword = project.hasProperty('dockerPassword') ? project.getProperty('dockerPassword') : 'default'
+    commitRev = project.hasProperty('commitRev') ? project.getProperty('commitRev') : 'latest'
+    serviceName = project.hasProperty('serviceName') ? project.getProperty('serviceName') : 'default'
+}
+
+configurations {
+    all {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    // Spring Boot
+    implementation('org.springframework.boot:spring-boot-starter-web') {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+    implementation('org.springframework.boot:spring-boot-starter') {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+    implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+
+    // Servlet
+    implementation 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+
+    // JWT
+    implementation 'com.nimbusds:nimbus-jose-jwt:8.9'
+
+    // Utility
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation('com.googlecode.log4jdbc:log4jdbc:1.2') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+    }
+    implementation 'org.json:json:20220320'
+
+    // Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Testing
+    implementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+    implementation 'org.assertj:assertj-core:3.24.2'
+
+    // Other
+    implementation 'com.intellij:annotations:9.0.4'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+bootJar {
+    archiveFileName = 'batch-service-1-pg4rb3b6op.jar'
+    mainClass = 'com.tlc.test.Main'
+}
+
+// Test task configuration
+test {
+    useJUnitPlatform()
+    reports {
+        junitXml {
+            required.set(true) // Enable JUnit XML report
+            outputLocation.set(file("${buildDir}/test-results")) // Set the output directory
+        }
+        html {
+            required.set(true) // Enable HTML report
+        }
+    }
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+sonarqube {
+    properties {
+        property 'sonar.projectKey', 'your_project_key'
+        property 'sonar.sourceEncoding', 'UTF-8'
+        property 'sonar.tests', '' // 테스트 파일을 분석에서 제외
+        property 'sonar.exclusions', 'src/test/**' // 테스트 디렉토리 전체를 제외
+        property 'sonar.java.binaries', file("${buildDir}/classes/java/main").absolutePath
+    }
+}
+
+
+jib {
+    from {
+        image = "registry.turacocloud.com/turaco-package/openjdk:17-alpine"
+    }
+    to {
+        image = "${dockerRegistry}"
+        if ("${dockerUser}" == ('default')) {
+            credHelper = 'ecr-login'
+        } else {
+            auth {
+                username = "${dockerUser}"
+                password = "${dockerPassword}"
+            }
+        }
+        tags = ["${serviceName}-${commitRev}", "${serviceName}-latest"]
+    }
+    extraDirectories {
+        paths = 'logs'
+    }
+
+    container {
+        jvmFlags = [
+                "-Djava.security.egd=file:/dev/./urandom".toString(),
+                '-Dspring.profiles.active=' + (springProfile ?: 'default')
+        ]
+        volumes = ['/tmp', '/logs']
+    }
+}
